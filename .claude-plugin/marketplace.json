@@ -160,6 +160,12 @@
       "category": "AI Agents"
     },
     {
+      "name": "phoenix",
+      "source": "./skills/phoenix",
+      "description": "Phoenix perpetual futures on Solana with the Rise SDK, covering TypeScript, Rust, REST, WebSocket streams, instruction builders, and Flight routing",
+      "category": "Trading"
+    },
+    {
       "name": "pinocchio-development",
       "source": "./skills/pinocchio-development",
       "description": "Pinocchio zero-dependency, zero-copy framework for high-performance Solana programs (88-95% CU reduction)",
