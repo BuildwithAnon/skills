@@ -102,6 +102,212 @@ Important REST routes:
 - `POST /v1/invite/activate`
 - `POST /v1/invite/activate-with-referral`
 
+## POST Request Bodies
+
+The canonical schema is the OpenAPI document at `https://docs.phoenix.trade/openapi/phoenix-public-api.json`. When implementing POST routes directly, validate against that schema instead of guessing field names from SDK examples.
+
+### Transaction Builders
+
+All transaction-builder routes accept JSON and return Solana instruction DTOs that clients must convert, compose, sign, and send. Do not treat these routes as order submission by themselves.
+
+Non-enhanced endpoints return `ApiInstructionResponse[]`:
+
+- `POST /v1/ix/place-isolated-limit-order`
+- `POST /v1/ix/place-isolated-market-order`
+- `POST /v1/ix/cancel-conditional-order`
+
+Enhanced endpoints return an object with `instructions: ApiInstructionResponse[]` and optional `estimatedLiquidationPriceUsd`:
+
+- `POST /v1/ix/place-isolated-limit-order-enhanced`
+- `POST /v1/ix/place-isolated-market-order-enhanced`
+
+`ApiInstructionResponse` has:
+
+- `programId` (string)
+- `keys` (array of account metadata)
+- `data` (array of integer bytes)
+
+#### Isolated Limit Order
+
+Routes:
+
+- `POST /v1/ix/place-isolated-limit-order`
+- `POST /v1/ix/place-isolated-limit-order-enhanced`
+
+Required body fields:
+
+- `authority` (string): trader authority pubkey
+- `symbol` (string): market symbol, for example `SOL-PERP`
+- `side` (string): order side, `bid` or `ask`
+
+Optional body fields:
+
+- `allowCrossAndIsolatedForAsset` (boolean or null)
+- `feePayer` (string or null)
+- `flightBuilderAuthority` (string or null)
+- `flightFeeCollectorTrader` (string or null)
+- `isPostOnly` (boolean or null): maker-only order when true
+- `isReduceOnly` (boolean or null)
+- `numBaseLots` (integer or null)
+- `pdaIndex` (integer or null)
+- `positionAuthority` (string or null)
+- `price` (number or null): human-readable price
+- `priceInTicks` (integer or null): tick price
+- `quantity` (number or null): human-readable base quantity
+- `skipTransferToParent` (boolean or null)
+- `slide` (boolean or null): for post-only orders, slide to best price when crossing; defaults to true
+- `tpSl` (`TpSlOrderConfig` or null)
+- `transferAmount` (integer)
+
+Example:
+
+```json
+{
+  "authority": "AUTHORITY_PUBKEY",
+  "symbol": "SOL-PERP",
+  "side": "bid",
+  "quantity": 0.25,
+  "price": 150.5,
+  "isPostOnly": true,
+  "slide": true
+}
+```
+
+#### Isolated Market Order
+
+Routes:
+
+- `POST /v1/ix/place-isolated-market-order`
+- `POST /v1/ix/place-isolated-market-order-enhanced`
+
+Required body fields:
+
+- `authority` (string): trader authority pubkey
+- `symbol` (string): market symbol, for example `SOL-PERP`
+- `side` (string): order side, `bid` or `ask`
+
+Optional body fields:
+
+- `allowCrossAndIsolatedForAsset` (boolean or null)
+- `feePayer` (string or null)
+- `flightBuilderAuthority` (string or null)
+- `flightFeeCollectorTrader` (string or null)
+- `isReduceOnly` (boolean or null)
+- `maxPriceInTicks` (integer or null)
+- `numBaseLots` (integer or null)
+- `pdaIndex` (integer or null)
+- `positionAuthority` (string or null)
+- `quantity` (number or null): human-readable base quantity
+- `skipTransferToParent` (boolean or null)
+- `tpSl` (`TpSlOrderConfig` or null)
+- `transferAmount` (integer)
+
+Example:
+
+```json
+{
+  "authority": "AUTHORITY_PUBKEY",
+  "symbol": "SOL-PERP",
+  "side": "bid",
+  "quantity": 0.25,
+  "isReduceOnly": false
+}
+```
+
+#### TP/SL Config
+
+`tpSl` is optional on isolated limit and market orders. Fields are:
+
+- `quantity` (number or null)
+- `numBaseLots` (integer or null)
+- `orderKind` (string or null)
+- `stopLossTriggerPrice` (number or null)
+- `stopLossTriggerPriceInTicks` (integer or null)
+- `stopLossExecutionPrice` (number or null)
+- `stopLossExecutionPriceInTicks` (integer or null)
+- `takeProfitTriggerPrice` (number or null)
+- `takeProfitTriggerPriceInTicks` (integer or null)
+- `takeProfitExecutionPrice` (number or null)
+- `takeProfitExecutionPriceInTicks` (integer or null)
+
+Prefer tick fields when the calling context already has market metadata and exact tick conversion. Prefer SDK helpers when converting from human-readable USD prices.
+
+#### Cancel Conditional Order
+
+Route: `POST /v1/ix/cancel-conditional-order`
+
+Required body fields:
+
+- `authority` (string)
+- `traderPdaIndex` (integer)
+- `symbol` (string)
+- `conditionalOrderIndex` (integer)
+- `executionDirection` (string)
+
+Optional body fields:
+
+- `isIsolated` (boolean)
+- `positionAuthority` (string or null)
+- `traderSubaccountIndex` (integer or null)
+
+Example:
+
+```json
+{
+  "authority": "AUTHORITY_PUBKEY",
+  "traderPdaIndex": 0,
+  "symbol": "SOL-PERP",
+  "conditionalOrderIndex": 0,
+  "executionDirection": "lessThan",
+  "isIsolated": true
+}
+```
+
+### Invite And Referral Activation
+
+`POST /v1/invite/activate` body:
+
+- `authority` (string, required)
+- `code` (string, required)
+
+`POST /v1/invite/activate-with-referral` body:
+
+- `authority` (string, required)
+- `referral_code` (string, required)
+
+Both return `ActivateInviteResponse` with `trader_pda`.
+
+### Auth
+
+`POST /v1/auth/login/service/challenge` body:
+
+- `client_id` (string, required)
+- `key_id` (string or null)
+
+Returns `nonce`, `message`, `expires_at`, and `key_id`.
+
+`POST /v1/auth/login/wallet` body:
+
+- `wallet_pubkey` (string, required)
+- `signature` (string, required)
+- `nonce_id` (string, required)
+
+`POST /v1/auth/login/service` body:
+
+- `client_id` (string, required)
+- `nonce` (string, required)
+- `timestamp` (string, required)
+- `signature` (string, required)
+- `key_id` (string or null)
+
+`POST /v1/auth/refresh` body:
+
+- `refresh_token` (string, required)
+
+Wallet login, service login, and refresh return `AuthResponse` with `token_type`, `access_token`, `expires_in`, `refresh_token`, `refresh_expires_in`, and `pop_key`.
+
+`POST /v1/auth/logout` has no JSON body and returns `204` when the session is revoked.
+
 ## WebSocket Channels
 
 Subscribe with:
@@ -139,4 +345,3 @@ PHOENIX_WS_URL=wss://perp-api.phoenix.trade/v1/ws
 SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 NEXT_PUBLIC_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 ```
-
