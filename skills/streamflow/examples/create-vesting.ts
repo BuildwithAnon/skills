@@ -21,7 +21,7 @@
  *     npx tsx create-vesting.ts
  *
  * Use a devnet RPC and the devnet program (the SDK picks the program id from the
- * cluster) while testing. Confirm @streamflow/stream is v12.x: `npm ls @streamflow/stream`.
+ * cluster) while testing. Built against @streamflow/stream@12.4.0.
  */
 
 import { Keypair } from "@solana/web3.js";

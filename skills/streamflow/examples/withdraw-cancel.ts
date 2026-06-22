@@ -21,7 +21,7 @@
  *   ACTION=withdraw|cancel|both \
  *     npx tsx withdraw-cancel.ts
  *
- * Confirm @streamflow/stream is v12.x: `npm ls @streamflow/stream`.
+ * Built against @streamflow/stream@12.4.0.
  */
 
 import { Keypair } from "@solana/web3.js";

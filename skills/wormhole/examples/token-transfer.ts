@@ -49,18 +49,25 @@ function required(name: string): string {
 }
 
 /**
- * Build a SignAndSendSigner for each platform. Each platform package exposes a
- * `getSigner(rpc, secret)` helper that returns a signer implementing the
+ * Build a SignAndSendSigner for each platform.
+ *
+ * In the v4 unified SDK, `solana` / `evm` are LOADERS: each is a
+ * `() => Promise<PlatformDefinition>`. You pass the loaders themselves to
+ * `wormhole(...)`, but to call `getSigner` you must AWAIT the loader first;
+ * `getSigner` lives on the resolved PlatformDefinition, not on the loader
+ * function. `getSigner(rpc, secret)` returns a signer implementing the
  * SignAndSendSigner interface (chain(), address(), signAndSend()).
  */
 async function getSolanaSigner(chainCtx: any) {
   const key = required("SOLANA_PRIVATE_KEY");
-  return (solana as any).getSigner(await chainCtx.getRpc(), key);
+  const platform = await solana(); // resolve the loader -> PlatformDefinition
+  return platform.getSigner(await chainCtx.getRpc(), key);
 }
 
 async function getEvmSigner(chainCtx: any) {
   const key = required("EVM_PRIVATE_KEY");
-  return (evm as any).getSigner(await chainCtx.getRpc(), key);
+  const platform = await evm(); // resolve the loader -> PlatformDefinition
+  return platform.getSigner(await chainCtx.getRpc(), key);
 }
 
 /** Poll for the signed VAA with exponential backoff. */

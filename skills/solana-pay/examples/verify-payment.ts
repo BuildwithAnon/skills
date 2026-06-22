@@ -12,7 +12,9 @@
  *                        passing validateTransfer is proof of payment.
  *
  * Run:
- *   npm i @solana/pay @solana/web3.js bignumber.js
+ *   # Pin bignumber.js to v9 to match @solana/pay (a v10+ BigNumber is a
+ *   # structurally incompatible type and will not type-check here).
+ *   npm i @solana/pay @solana/web3.js bignumber.js@^9
  *   RPC_URL=https://api.mainnet-beta.solana.com \
  *   RECIPIENT=<wallet> AMOUNT=1.5 REFERENCE=<ref-from-create-step> \
  *     npx tsx verify-payment.ts
@@ -64,7 +66,12 @@ async function awaitPayment(
   return null; // timed out, never paid
 }
 
-/** Validate the found tx against the exact request. Returns a verdict. */
+/**
+ * Validate the found tx against the exact request. Returns a verdict.
+ * verify() only ever yields "paid" or "mismatch" (the "timeout" arm of Verdict
+ * is decided earlier, by awaitPayment), so its return type excludes "timeout"
+ * and the caller can narrow on status without a stray timeout case.
+ */
 async function verify(
   connection: Connection,
   signature: string,
@@ -74,7 +81,7 @@ async function verify(
     splToken?: PublicKey;
     reference: PublicKey;
   }
-): Promise<Verdict> {
+): Promise<Exclude<Verdict, { status: "timeout" }>> {
   try {
     await validateTransfer(
       connection,

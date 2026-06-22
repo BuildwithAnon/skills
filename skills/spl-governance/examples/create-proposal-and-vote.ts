@@ -25,12 +25,15 @@
  *   SECRET_KEY=[..json array..] \
  *     npx tsx create-proposal-and-vote.ts <REALM_PUBKEY> <GOVERNANCE_PUBKEY>
  *
- * VERSION NOTE: the with* builders below (withDepositGoverningTokens,
- * withCreateProposal, withInsertTransaction, withSignOffProposal, withCastVote,
- * withExecuteTransaction), the Vote/VoteKind types, getTokenOwnerRecordAddress,
- * and getGovernanceProgramVersion are all real exports of @solana/spl-governance.
- * Argument order can shift across major versions, so check the installed
- * package's typings if a call does not type-check.
+ * VERSION NOTE: verified against @solana/spl-governance 0.3.28. The with*
+ * builders below (withDepositGoverningTokens, withCreateProposal,
+ * withInsertTransaction, withSignOffProposal, withCastVote,
+ * withExecuteTransaction), the Vote/VoteType/YesNoVote types,
+ * createInstructionData, getTokenOwnerRecordAddress, getNativeTreasuryAddress,
+ * and getGovernanceProgramVersion are all real exports. Two argument types are
+ * easy to get wrong in this line: withDepositGoverningTokens takes a bn.js BN
+ * amount (not a bigint), and withCreateProposal takes a numeric proposalIndex
+ * (not a seed pubkey).
  */
 
 import {
@@ -42,9 +45,11 @@ import {
   SystemProgram,
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
+import BN from "bn.js";
 import {
   getGovernanceProgramVersion,
   getRealm,
+  getGovernance,
   getTokenOwnerRecordAddress,
   getNativeTreasuryAddress,
   withDepositGoverningTokens,
@@ -101,10 +106,12 @@ async function main() {
   const governingTokenMint: PublicKey = realm.account.communityMint;
   console.log("Governing mint (community):", governingTokenMint.toBase58());
 
-  // Voter-weight addin check: if present, a plain deposit is NOT vote weight
+  // Voter-weight addin check: if flagged, a plain deposit is NOT vote weight
   // and you must supply a VoterWeightRecord from the addin's SDK to the
-  // create-proposal and cast-vote calls below.
-  const addin = realm.account.config?.communityVoterWeightAddin;
+  // create-proposal and cast-vote calls below. The flag is a boolean on the
+  // realm config; the addin's program id lives in the separate
+  // RealmConfigAccount (getRealmConfig / getRealmConfigAddress).
+  const addin = realm.account.config?.useCommunityVoterWeightAddin;
   if (addin) {
     console.warn(
       "This realm uses a voter-weight addin (e.g. VSR). You must build its " +
@@ -121,10 +128,9 @@ async function main() {
   // withDepositGoverningTokens pushes the instruction(s) that move tokens from
   // the caller's ATA into the realm and create/grow the TokenOwnerRecord.
   // -------------------------------------------------------------------------
-  const depositAmount = process.env.DEPOSIT_AMOUNT
-    ? BigInt(process.env.DEPOSIT_AMOUNT)
-    : 0n;
-  if (depositAmount > 0n) {
+  // withDepositGoverningTokens takes a bn.js BN (raw base units), not a bigint.
+  const depositAmount = new BN(process.env.DEPOSIT_AMOUNT ?? "0");
+  if (depositAmount.gtn(0)) {
     // The source token account is usually the caller's ATA for the mint.
     const sourceTokenAccount = new PublicKey(
       process.env.SOURCE_TOKEN_ACCOUNT as string
@@ -164,9 +170,12 @@ async function main() {
   const options = ["Approve"];
   const useDenyOption = true;
 
-  // A fresh seed keys the proposal PDA. (Older flows used the
-  // TokenOwnerRecord's proposal count as an index instead.)
-  const proposalSeed = Keypair.generate().publicKey;
+  // The proposal PDA is keyed by a NUMERIC proposalIndex (u32), which is the
+  // governance's current proposalCount. Read it from the governance account so
+  // the derived PDA does not collide with an existing proposal.
+  const governanceAccount = await getGovernance(connection, governancePubkey);
+  const proposalIndex = governanceAccount.account.proposalCount;
+  console.log("Next proposal index:", proposalIndex);
 
   const proposalAddress: PublicKey = await withCreateProposal(
     instructions, // accumulator
@@ -179,7 +188,7 @@ async function main() {
     descriptionLink,
     governingTokenMint,
     wallet.publicKey, // governance authority (proposal owner)
-    /* proposalIndexOrSeed */ proposalSeed,
+    /* proposalIndex (u32, = governance.proposalCount) */ proposalIndex,
     voteType,
     options,
     useDenyOption,
@@ -216,8 +225,11 @@ async function main() {
     proposalAddress,
     tokenOwnerRecord,
     wallet.publicKey, // governance authority
+    // 0.3.28 order is (index, optionIndex, holdUpTime). `index` is the
+    // transaction index within the option; `optionIndex` selects the vote
+    // option this transaction belongs to. Both are the first slot here.
+    /* index (transactionIndex) */ 0,
     /* optionIndex */ 0,
-    /* transactionIndex */ 0,
     /* holdUpTime */ 0,
     // The instruction(s) to wrap, as InstructionData via createInstructionData.
     [createInstructionData(innerIx)],

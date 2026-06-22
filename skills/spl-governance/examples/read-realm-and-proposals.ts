@@ -15,17 +15,21 @@
  *   RPC_URL=https://api.mainnet-beta.solana.com \
  *     npx tsx read-realm-and-proposals.ts <REALM_PUBKEY>
  *
- * VERSION NOTE: getRealm, getAllProposals, getGovernanceAccountsByRealm, and
- * the ProposalState enum are all real exports of @solana/spl-governance. If a
- * reader name does not resolve in your installed version, check the typings;
- * this file falls back across the two common proposal-reader names.
+ * VERSION NOTE: verified against @solana/spl-governance 0.3.28. getRealm,
+ * getAllProposals, getGovernanceAccounts, pubkeyFilter, the Governance account
+ * class, and the ProposalState enum are all real exports. Governances are listed
+ * with getGovernanceAccounts(conn, programId, Governance, [pubkeyFilter(1, realm)])
+ * (there is no getGovernanceAccountsByRealm in this line). The Governance
+ * account stores its realm at offset 1 (1-byte account-type discriminator first).
  */
 
 import { Connection, PublicKey } from "@solana/web3.js";
 import {
   getRealm,
   getAllProposals,
-  getGovernanceAccountsByRealm,
+  getGovernanceAccounts,
+  pubkeyFilter,
+  Governance,
   ProposalState,
 } from "@solana/spl-governance";
 
@@ -83,9 +87,13 @@ async function main() {
     "  (community and council are SEPARATE vote tracks: proposals/votes target one)"
   );
 
-  // Voter-weight addin caveat: if the realm config points to a voter-weight
-  // addin (e.g. VSR), a plain token deposit is NOT the vote weight.
-  const communityAddin = realm.account.config?.communityVoterWeightAddin;
+  // Voter-weight addin caveat: if the realm config flags a community
+  // voter-weight addin (e.g. VSR), a plain token deposit is NOT the vote
+  // weight. The flag lives on the realm config as `useCommunityVoterWeightAddin`;
+  // the addin's actual program id lives in the separate RealmConfigAccount
+  // (read via getRealmConfig / getRealmConfigAddress) and its SDK supplies the
+  // VoterWeightRecord.
+  const communityAddin = realm.account.config?.useCommunityVoterWeightAddin;
   if (communityAddin) {
     console.log(
       "\n  WARNING: this realm uses a voter-weight addin (e.g. VSR). " +
@@ -97,10 +105,15 @@ async function main() {
   // -------------------------------------------------------------------------
   // Step 3: list governances under the realm.
   // -------------------------------------------------------------------------
-  const governances: any[] = await getGovernanceAccountsByRealm(
+  // Filter Governance accounts by their `realm` field (offset 1: a 1-byte
+  // account-type discriminator precedes it). pubkeyFilter returns undefined for
+  // a null key, so coerce to the MemcmpFilter[] getGovernanceAccounts expects.
+  const realmFilter = pubkeyFilter(1, realmPubkey)!;
+  const governances = await getGovernanceAccounts(
     connection,
     programId,
-    realmPubkey
+    Governance,
+    [realmFilter]
   );
   console.log(`\nGovernances under realm: ${governances.length}`);
 

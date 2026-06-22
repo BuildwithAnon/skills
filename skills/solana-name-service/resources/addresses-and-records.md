@@ -72,4 +72,4 @@ Using `registry.owner` to route a payment will send funds to the wrong wallet wh
 
 Deprecated aliases to avoid in new code: `getFavoriteDomain` (use `getPrimaryDomain`), `performReverseLookup` (use `reverseLookup`), V1 record helpers (use the V2 record API).
 
-Version note: the table above is the v3 (3.0.x) shape. `registerDomainNameV2`'s argument order has shifted across major versions, so if you pin a different major, confirm the signature against `node_modules/@bonfida/spl-name-service/dist/*.d.ts`.
+Version note: the table above is the v3 (3.0.x) shape, verified against the installed `@bonfida/spl-name-service@3.0.23` types. `registerDomainNameV2`'s argument order has shifted across major versions, so if you pin a different major, confirm the signature against `node_modules/@bonfida/spl-name-service/dist/*.d.ts`.

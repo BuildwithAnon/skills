@@ -16,7 +16,7 @@ SPL Governance is the on-chain program that powers Realms DAOs on Solana. A DAO 
 
 The TypeScript SDK is **`@solana/spl-governance`**. Its instruction builders are `with*` functions (`withDepositGoverningTokens`, `withCreateProposal`, `withInsertTransaction`, `withSignOffProposal`, `withCastVote`, `withExecuteTransaction`). Each one **pushes a `TransactionInstruction` into an array you pass in**; it does not send anything. You collect those instructions, build a transaction, sign, and send yourself. Several builders return a value (for example the new proposal address, or a PDA) while still mutating the array.
 
-> SDK note: these are all real exports of `@solana/spl-governance`. Argument order can shift across major versions, so pin the version you install and check the generated typings if a call does not type-check. The account model and lifecycle below are stable.
+> SDK note: these are all real exports of `@solana/spl-governance`, verified against 0.3.28. Two argument types catch people in this line: `withDepositGoverningTokens` takes a bn.js `BN` amount (not a bigint), and `withCreateProposal` takes a numeric `proposalIndex` (= the governance's `proposalCount`), not a seed pubkey. Argument order can shift across majors, so pin the version and check the generated typings if a call does not type-check. The account model and lifecycle below are stable.
 
 Use this skill when the user wants to take part in a token-based DAO: inspect a realm, become a voting member, draft or vote on a proposal, or execute one that passed. Do **not** use it for Squads multisigs (those are signer-set wallets with no governing token and no `Realm`); use the `squads` skill for that.
 
@@ -38,7 +38,7 @@ A realm is owned by a governance **program instance**. The canonical SPL Governa
 Before acting, map what exists. See `resources/accounts-and-flow.md` for the full account model.
 
 - Read the realm's **community mint** and (if set) **council mint** from the realm account. These are two separate governing-token tracks; a proposal and a vote each target one mint, not both.
-- List the `Governance` accounts under the realm with `getGovernanceAccountsByRealm`. Each `Governance` is the rule-set for one treasury, token account, mint, or program.
+- List the `Governance` accounts under the realm with `getGovernanceAccounts(connection, programId, Governance, [pubkeyFilter(1, realmPubkey)])` (the `Governance` account class and `pubkeyFilter` are both exports; the realm pubkey sits at offset 1, after the 1-byte account-type tag). There is no `getGovernanceAccountsByRealm` in `@solana/spl-governance` 0.3.x. Each `Governance` is the rule-set for one treasury, token account, mint, or program.
 - List proposals with `getAllProposals(connection, programId, realmPubkey)` (returns one inner array per governance) or per-governance with `getProposalsByGovernance(connection, programId, governancePubkey)`. Read each proposal's `state` to know whether it is Draft, Voting, Succeeded, Defeated, or Executing/Completed.
 
 **Success criterion:** You can name the governances under the realm, the governing mints, and the current state of the proposals you care about, without sending any transaction.
@@ -49,7 +49,7 @@ A member's vote weight lives in a `TokenOwnerRecord` PDA, keyed by `(realm, gove
 
 - Read the caller's record with `getTokenOwnerRecordForRealm(...)`, or derive the PDA with `getTokenOwnerRecordAddress(...)` and `getAccountInfo`. Its `governingTokenDepositAmount` is the deposited balance that backs plain token-weighted voting.
 - If the caller has no record or insufficient weight and wants to vote/propose, deposit governing tokens with `withDepositGoverningTokens`. This builder pushes instructions that move tokens from the caller's associated token account into the realm and create/grow the `TokenOwnerRecord`. Choose the **community** or **council** mint deliberately, since they are independent tracks.
-- **Voter-weight plugins / addins caveat (read this):** many realms enable a voter-weight addin (for example **VSR**, vote-escrowed/locked tokens, or NFT-based weight). When an addin is active, the plain `TokenOwnerRecord.governingTokenDepositAmount` is **not** the vote weight the program uses; weight is computed by the addin and supplied through a `VoterWeightRecord`. If the realm has a `communityVoterWeightAddin` / `maxVoterWeightAddin` configured, you must produce the addin's `VoterWeightRecord` (via that addin's own SDK) and pass it to vote/create-proposal calls. Detect this from the realm config before assuming a deposit alone grants weight, and tell the user when an addin is in play.
+- **Voter-weight plugins / addins caveat (read this):** many realms enable a voter-weight addin (for example **VSR**, vote-escrowed/locked tokens, or NFT-based weight). When an addin is active, the plain `TokenOwnerRecord.governingTokenDepositAmount` is **not** the vote weight the program uses; weight is computed by the addin and supplied through a `VoterWeightRecord`. Detect this from the realm config: in `@solana/spl-governance` 0.3.x the realm account carries boolean flags `realm.account.config.useCommunityVoterWeightAddin` / `useMaxCommunityVoterWeightAddin`. The addin's actual program id lives in the separate `RealmConfigAccount` (read it with `getRealmConfig` / derive with `getRealmConfigAddress`), under `communityTokenConfig.voterWeightAddin` / `maxVoterWeightAddin`. When a flag is set, you must produce the addin's `VoterWeightRecord` (via that addin's own SDK) and pass it to vote/create-proposal calls. Check this before assuming a deposit alone grants weight, and tell the user when an addin is in play.
 
 **Success criterion:** You know the caller's effective vote weight and how it is computed (plain deposit vs addin), and have either confirmed sufficient weight or built the deposit (and, if needed, addin) instructions.
 
@@ -145,7 +145,7 @@ The agent runs `examples/create-proposal-and-vote.ts`, which demonstrates the `w
 
 ### Error: Deposited tokens but still no vote weight
 **Cause:** A voter-weight addin computes weight and overrides the raw deposit amount.
-**Solution:** Inspect the realm config for `communityVoterWeightAddin` / `maxVoterWeightAddin`; if present, build and pass the addin's `VoterWeightRecord`.
+**Solution:** Check the realm config flags `useCommunityVoterWeightAddin` / `useMaxCommunityVoterWeightAddin` (the addin program id itself is in the separate `RealmConfigAccount`, via `getRealmConfig`); if set, build and pass the addin's `VoterWeightRecord`.
 
 ## References
 

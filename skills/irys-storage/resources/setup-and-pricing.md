@@ -21,7 +21,7 @@ Do NOT use the legacy `new Irys({...})` constructor or `@bundlr-network/client` 
 - `@irys/upload-solana` 0.1.8 (the Solana connector, exports `Solana`)
 - `@irys/upload-solana` depends on `@solana/web3.js ^1.95.3`
 
-These versions move; pin or confirm the latest minor before shipping production code.
+These are the latest published versions (confirmed on npm); pin them in `package.json` for reproducible builds.
 
 ### Install
 

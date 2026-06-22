@@ -107,13 +107,17 @@ JitoSOL has two on-pool exits, and the instant one is usually unavailable:
 
 ```ts
 import { withdrawStake } from "@solana/spl-stake-pool";
-const { instructions, signers } = await withdrawStake(
+const { instructions, signers, stakeReceiver } = await withdrawStake(
   connection,
   JITO_STAKE_POOL,
   walletPublicKey,
   500_000_000 // JitoSOL (pool-token) amount to redeem, in base units (a number)
 );
-// send -> receive a stake account; then StakeProgram.deactivate, wait ~1 epoch, StakeProgram.withdraw
+// `stakeReceiver` is the new stake account's pubkey (the SDK generates it when you
+// pass no stakeReceiver and includes its keypair in `signers`). Use the returned
+// `stakeReceiver`; do NOT pick it out of `signers`, which also holds the SDK's
+// transfer-authority keypair.
+// send -> StakeProgram.deactivate(stakeReceiver), wait ~1 epoch, StakeProgram.withdraw
 ```
 
 If the user needs a truly **instant** JitoSOL exit, tell them the on-pool instant path is unavailable and that instant liquidity comes from a secondary market (Jupiter or Sanctum), which is the `sanctum` skill, not this one.

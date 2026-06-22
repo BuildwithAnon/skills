@@ -35,7 +35,7 @@ This skill targets `@bonfida/spl-name-service` (v3, peer dep `@solana/web3.js` v
 npm i @bonfida/spl-name-service @solana/web3.js
 ```
 
-- The package is `@bonfida/spl-name-service` (version 3.0.23 at time of writing). The repo is `github.com/SolanaNameService/sns-sdk`.
+- The package is `@bonfida/spl-name-service` (latest published version 3.0.23, confirmed on npm). The repo is `github.com/SolanaNameService/sns-sdk`.
 - Do NOT install the unscoped `sns-sdk` package on npm. It is a different, unrelated product and will not expose these functions.
 - The peer dependency is `@solana/web3.js` **v1** (`^1.98.2`). v1 functions return `PublicKey` objects, so call `.toBase58()` to get a string. This skill is not written for `@solana/kit` (web3.js v2).
 - React frontends can use the companion hooks package `@bonfida/sns-react`.
@@ -120,7 +120,7 @@ Subdomains and records:
 - `transferSubdomain(...)` to transfer one.
 - `getRecordV2(connection, "bonfida", record)` / `getRecordV2Key(...)` for records. Use the V2 record API; V1 record helpers are deprecated.
 
-The signature above is the v3 shape. The SDK has changed argument order across major versions, so if you pin a different major, confirm it against the installed `dist/*.d.ts`.
+The signature above is the v3 shape, verified against the installed `@bonfida/spl-name-service@3.0.23` types: `registerDomainNameV2(connection, name, space, buyer, buyerTokenAccount, mint?, referrerKey?)`. The SDK has changed argument order across major versions, so if you pin a different major, confirm it against the installed `dist/*.d.ts`.
 
 **Success criterion:** you produced registration instruction(s) (or a subdomain/record call).
 

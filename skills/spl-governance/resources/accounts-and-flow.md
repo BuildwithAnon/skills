@@ -28,7 +28,7 @@ There is a canonical SPL Governance program id, `GovER5Lthms3bLBqWub97yVrMmEogzX
 The common reader functions:
 
 - `getRealm(connection, realmPubkey)` - the realm account and config.
-- `getGovernanceAccountsByRealm(connection, programId, realmPubkey)` - the governances under a realm.
+- `getGovernanceAccounts(connection, programId, Governance, [pubkeyFilter(1, realmPubkey)])` - the governances under a realm. (There is no `getGovernanceAccountsByRealm` in 0.3.x; the `Governance` account class and `pubkeyFilter` are exports, and the realm pubkey is at offset 1, after the 1-byte account-type tag.)
 - `getProposalsByGovernance(connection, programId, governancePubkey)` or `getAllProposals(connection, programId, realmPubkey)` - proposals.
 - `getTokenOwnerRecordForRealm(...)` / `getTokenOwnerRecordsByOwner(...)` - a member's deposit/weight record(s).
 - `getVoteRecord(...)` - a cast vote.
@@ -48,7 +48,7 @@ These are **separate end to end**. A `TokenOwnerRecord` is per mint, a `Proposal
 
 By default, a member's vote weight is the `governingTokenDepositAmount` on their `TokenOwnerRecord`: deposit more tokens, get more weight. **But many realms enable a voter-weight addin**, and then that assumption is wrong.
 
-A voter-weight addin is a separate program the realm config points to (`communityVoterWeightAddin`, and optionally `maxVoterWeightAddin`). Examples:
+A voter-weight addin is a separate program the realm enables. In `@solana/spl-governance` 0.3.x the realm account exposes only boolean flags (`realm.account.config.useCommunityVoterWeightAddin`, `useMaxCommunityVoterWeightAddin`); the addin's actual program id lives in the separate `RealmConfigAccount` (read with `getRealmConfig` / derive with `getRealmConfigAddress`) under `communityTokenConfig.voterWeightAddin` and `maxVoterWeightAddin`. Examples:
 
 - **VSR (Voter Stake Registry)** - vote-escrow / lockup weighting: longer-locked tokens get more weight than the raw deposited amount.
 - **NFT voter** - weight derived from holding NFTs in a collection, not from a fungible deposit.

@@ -1,6 +1,6 @@
 # Streamflow SDK: Methods, Parameters, and Enums
 
-Reference for `@streamflow/stream@12.4.0`. The package ships its own types; verify the version on npm with `npm ls @streamflow/stream`. All amounts are `BN` in the token's smallest units; all timestamps are UNIX seconds.
+Reference for `@streamflow/stream@12.4.0` (the current published version, confirmed on npm). The package ships its own types. All amounts are `BN` in the token's smallest units; all timestamps are UNIX seconds.
 
 ## Imports
 

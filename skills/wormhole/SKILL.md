@@ -35,7 +35,9 @@ A transfer is always two-phase and asynchronous: **initiate on the source**, wai
 
 ## Instructions
 
-The program IDs and package family below are stable. Pin the SDK version you install and check exact export names against its typings, since the SDK surface can shift across major releases.
+The program IDs and package family below are stable. The export names in this skill were verified against `@wormhole-foundation/sdk` 4.24.0 (`wormhole`, `signSendWait`, `amount`, `Wormhole`, the `./solana` and `./evm` platform sub-imports, `getVaa`, `getDecimals`, `getTokenBridge`, and TokenBridge `transfer`/`redeem` all resolve there). Pin the SDK version you install; if you move to a newer major, re-check the exact names against its typings.
+
+**v4 loader gotcha:** the platform imports (`solana`, `evm`) are LOADER FUNCTIONS, `() => Promise<PlatformDefinition>`. You pass the loaders themselves to `wormhole(network, [solana, evm])`, but anything that lives on the PlatformDefinition (notably `getSigner`) requires you to AWAIT the loader first: `const platform = await solana(); platform.getSigner(rpc, key)`. Calling `solana.getSigner(...)` on the bare loader fails at runtime.
 
 ### Step 0: Pin packages, IDs, and network
 

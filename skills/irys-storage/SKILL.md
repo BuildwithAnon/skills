@@ -42,7 +42,7 @@ For a browser / wallet-adapter context, use the web variants instead:
 npm install @irys/web-upload @irys/web-upload-solana
 ```
 
-`@irys/upload-solana` depends on `@solana/web3.js ^1.95.3`. Current versions: `@irys/upload` 0.0.15, `@irys/upload-solana` 0.1.8. Pin or confirm the latest minor before publishing production code, since these move.
+`@irys/upload-solana` depends on `@solana/web3.js ^1.95.3`. Current versions (confirmed on npm): `@irys/upload` 0.0.15, `@irys/upload-solana` 0.1.8. These are the latest published releases; pin them in `package.json` for reproducible builds.
 
 **Success criterion:** the two split packages are installed. You are NOT importing from `@irys/sdk` or `@bundlr-network/client`.
 

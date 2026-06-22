@@ -7,7 +7,10 @@
  * the order and reuse later to find and validate the payment on chain.
  *
  * Run:
- *   npm i @solana/pay @solana/web3.js bignumber.js
+ *   # Pin bignumber.js to v9: @solana/pay depends on bignumber.js@^9, and a
+ *   # v10+ BigNumber is a structurally incompatible type (separate private
+ *   # _isBigNumber field) that will not type-check against encodeURL/validateTransfer.
+ *   npm i @solana/pay @solana/web3.js bignumber.js@^9
  *   RECIPIENT=<your-wallet> AMOUNT=1.5 npx tsx create-payment-request.ts
  *   # SPL token instead of SOL:
  *   RECIPIENT=<wallet> AMOUNT=9.99 SPL_TOKEN=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v \

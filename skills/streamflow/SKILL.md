@@ -43,10 +43,10 @@ npm i -s @streamflow/stream
 # getBN, getNumberFromBN, ICluster, and ContractError through @streamflow/stream.
 ```
 
-- Target `@streamflow/stream@12.4.0` (the current major as of 2026). Older guides reference v6 with a `StreamflowSolana`/`GenericStreamClient`/`Types` import surface: that is stale. In v12 the client and enums are top-level named exports.
-- The package ships its own TypeScript types. Verify the version on npm with `npm ls @streamflow/stream`.
+- Target `@streamflow/stream@12.4.0` (the current published version as of 2026, confirmed on npm). Older guides reference v6 with a `StreamflowSolana`/`GenericStreamClient`/`Types` import surface: that is stale. In v12 the client and enums are top-level named exports.
+- The package ships its own TypeScript types, and `@streamflow/common` (a transitive dependency, auto-installed) re-exports `getBN`, `getNumberFromBN`, `ICluster`, and `ContractError` through `@streamflow/stream`.
 
-**Success criterion:** `@streamflow/stream` resolves at v12.x and `import { SolanaStreamClient } from "@streamflow/stream"` type-checks.
+**Success criterion:** `@streamflow/stream` resolves at v12.4.0 and `import { SolanaStreamClient } from "@streamflow/stream"` type-checks.
 
 ### Step 1: Construct a client
 

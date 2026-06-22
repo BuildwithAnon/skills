@@ -51,7 +51,7 @@ Persist `reference` (base58) alongside the order/invoice. You need it again in S
 
 ### Step 2: Encode the transfer request URL
 
-Use `encodeURL`. Amounts are `BigNumber` in whole token units (not lamports, not raw): `new BigNumber("1.5")` means 1.5 SOL, or 1.5 of the SPL token in its own decimals. Pass `splToken` (the mint `PublicKey`) only for SPL tokens; omit it for native SOL.
+Use `encodeURL`. Amounts are `BigNumber` in whole token units (not lamports, not raw): `new BigNumber("1.5")` means 1.5 SOL, or 1.5 of the SPL token in its own decimals. Pass `splToken` (the mint `PublicKey`) only for SPL tokens; omit it for native SOL. Install `bignumber.js@^9` to match `@solana/pay`; a v10+ `BigNumber` is a structurally incompatible type and will fail to type-check against `encodeURL` / `validateTransfer`.
 
 ```ts
 import { encodeURL } from "@solana/pay";
@@ -249,7 +249,7 @@ User asks: "I need the payment to also call my loyalty program, not just transfe
 ## References
 
 - `resources/url-specs.md`: transfer-request and transaction-request field tables (`encodeURL` inputs, the `GET`/`POST` request and response shapes), with the on-chain vs display-only distinction.
-- `examples/create-payment-request.ts`: generate a unique reference, `encodeURL` a transfer request, render with `createQR`, and print the URL. Runnable with `@solana/pay`, `@solana/web3.js`, `bignumber.js`.
+- `examples/create-payment-request.ts`: generate a unique reference, `encodeURL` a transfer request, render with `createQR`, and print the URL. Runnable with `@solana/pay`, `@solana/web3.js`, `bignumber.js@^9` (pin v9; `@solana/pay` depends on bignumber.js@^9 and a v10+ BigNumber is a structurally incompatible type).
 - `examples/verify-payment.ts`: poll `findReference` (swallowing `FindReferenceError`) then `validateTransfer`, returning a PAID / mismatch / timeout verdict.
 - Solana Pay spec: https://docs.solanapay.com/spec
 - Solana Pay docs: https://docs.solanapay.com

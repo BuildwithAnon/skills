@@ -92,9 +92,13 @@ async function withdrawPhase(
   // this amount as a number in @solana/spl-stake-pool.
   const poolTokenAmount = Math.round(jitoSolAmount * LAMPORTS_PER_SOL);
 
-  // withdrawStake returns instructions + signers; one returned signer is the
-  // new stake account keypair that will receive the delegated stake.
-  const { instructions, signers } = await withdrawStake(
+  // withdrawStake returns { instructions, signers, stakeReceiver, ... }. When no
+  // stakeReceiver is passed in (as here), the SDK generates the destination stake
+  // account internally and returns its pubkey as `stakeReceiver` (and includes its
+  // keypair among `signers`). Use the returned `stakeReceiver` directly: signers
+  // also contains the SDK's transfer-authority keypair, so do NOT try to pick the
+  // stake account out of signers by elimination.
+  const { instructions, signers, stakeReceiver } = await withdrawStake(
     connection,
     JITO_STAKE_POOL,
     payer.publicKey,
@@ -102,10 +106,7 @@ async function withdrawPhase(
   );
   const sig = await sendIxs(connection, payer, instructions, signers as Signer[]);
 
-  // The freshly created stake account is the signer that is not the payer.
-  const stakeAccount = (signers as Signer[]).find(
-    (s) => !s.publicKey.equals(payer.publicKey)
-  )?.publicKey;
+  const stakeAccount = stakeReceiver;
 
   console.log("WITHDRAW (phase A) DONE");
   console.log(`  signature:     ${sig}`);

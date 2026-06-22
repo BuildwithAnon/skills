@@ -24,7 +24,7 @@ The shape is always the same:
 
 This is NOT request/response. The stream is long-lived. Treat it like a socket: filters are evaluated on the server, broad filters are expensive and may be throttled, and you own backpressure and reconnection.
 
-> Version note: the client is published as `@triton-one/yellowstone-grpc` on npm. Proto field casing on `SubscribeRequest` can differ between releases, so if a specific field is rejected, check the installed package's generated types in `node_modules`. The field names below follow the current TypeScript client.
+> Version note: the client is published as `@triton-one/yellowstone-grpc` on npm (verified against `1.0.0`). `Client` is the default export and `CommitmentLevel` a named export (`PROCESSED=0`, `CONFIRMED=1`, `FINALIZED=2`). The `SubscribeRequest` fields are camelCase exactly as used below: `accounts`, `slots`, `transactions`, `transactionsStatus`, `blocks`, `blocksMeta`, `entry`, `commitment`, `accountsDataSlice`, `ping`; the accounts filter takes `account` / `owner` / `filters`, and the transactions filter takes `accountInclude` / `accountExclude` / `accountRequired`. Note that in the generated proto types `memcmp.offset` and `datasize` are strings. If you target a different release and a field is rejected, check the installed package's generated types in `node_modules/@triton-one/yellowstone-grpc/dist/grpc/geyser.d.ts`.
 
 ## Instructions
 

@@ -49,7 +49,7 @@ const rentExempt = await connection.getMinimumBalanceForRentExemption(
 const lamports = rentExempt + amountToStakeLamports;
 ```
 
-The delegated portion must meet the network **minimum delegation**. Fetch it at runtime with `connection.getStakeMinimumDelegation()` (it returns `{ value }` in lamports) rather than hardcoding, since it is a network parameter (currently 1 SOL on mainnet). If you are on an older `@solana/web3.js` that lacks the method, fall back to the 1 SOL floor and surface that you assumed it.
+The delegated portion must meet the network **minimum delegation**. Fetch it at runtime with `connection.getStakeMinimumDelegation()` (present in `@solana/web3.js` v1, confirmed through v1.98.4; it returns `RpcResponseAndContext<number>`, so read `res.value` in lamports) rather than hardcoding, since it is a network parameter (currently 1 SOL on mainnet). On a much older `@solana/web3.js` that predates the method, fall back to the 1 SOL floor and surface that you assumed it.
 
 **Success criterion:** You have a stake-authority pubkey, a withdraw-authority pubkey, the funded lamports (reserve + stake), and a delegated amount at or above the minimum delegation.
 
@@ -172,7 +172,7 @@ const splitTx = StakeProgram.split(
 );
 ```
 
-The new account inherits the same authorities, lockup, and delegation/activation state. Both the source and the destination must still satisfy the minimum delegation after the split. The `splitStakePubkey` keypair must sign. The current `@solana/web3.js` v1 `split` takes the rent-exempt reserve as the second argument, `StakeProgram.split(params, rentExemptReserve)`; verify the signature against your installed version if you are on an older release.
+The new account inherits the same authorities, lockup, and delegation/activation state. Both the source and the destination must still satisfy the minimum delegation after the split. The `splitStakePubkey` keypair must sign. In `@solana/web3.js` v1 (confirmed through v1.98.4), `split` takes the rent-exempt reserve as the second argument: `StakeProgram.split(params, rentExemptReserve)`.
 
 **Success criterion:** Two stake accounts exist, each delegated to the same validator with the same state, each at or above minimum delegation.
 
