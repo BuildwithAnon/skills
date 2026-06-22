@@ -60,6 +60,9 @@ npx skills add sendaifun/skills
 | [pumpfun](skills/pumpfun/) | Token launches, bonding curves, PumpSwap AMM |
 | [raydium](skills/raydium/) | AMM pools, CLMM, CPMM, LaunchLab token launches |
 | [sanctum](skills/sanctum/) | Liquid staking, LST swaps, Infinity pool |
+| [streamflow](skills/streamflow/) | Token vesting and streaming payments, cliffs and periods |
+| [jito-staking](skills/jito-staking/) | JitoSOL liquid staking via the SPL stake pool, and Jito restaking vaults |
+| [solana-native-staking](skills/solana-native-staking/) | Native stake accounts: create, delegate, deactivate, withdraw, split, merge |
 
 ### Infrastructure
 
@@ -72,6 +75,10 @@ npx skills add sendaifun/skills
 | [magicblock](skills/magicblock/) | Ephemeral Rollups, sub-10ms latency, gasless transactions |
 | [sol-incinerator](skills/sol-incinerator/) | Burn tokens, burn nfts, close token accounts |
 | [squads](skills/squads/) | Multisig wallets, smart accounts, account abstraction |
+| [solana-name-service](skills/solana-name-service/) | Resolve and manage .sol domains: resolve, reverse lookup, list, register |
+| [spl-governance](skills/spl-governance/) | SPL Governance and Realms DAOs: proposals, voting, execution |
+| [irys-storage](skills/irys-storage/) | Permanent Arweave storage paid with SOL, for files and NFT metadata |
+| [yellowstone-grpc-stream](skills/yellowstone-grpc-stream/) | Real-time Geyser gRPC subscriptions, provider agnostic |
 
 ### Trading
 
@@ -79,6 +86,7 @@ npx skills add sendaifun/skills
 |-------|-------------|
 | [dflow](skills/dflow/) | Spot trading, prediction markets, Swap API, WebSocket streaming |
 | [ranger-finance](skills/ranger-finance/) | Perps aggregator across Drift, Flash, Adrena, Jupiter |
+| [tensor](skills/tensor/) | NFT marketplace trading: floors, buy, list, sell, collection and trait bids |
 
 ### Oracles
 
@@ -102,12 +110,14 @@ npx skills add sendaifun/skills
 |-------|-------------|
 | [debridge](skills/debridge/) | Cross-chain bridges, message passing, Solana ↔ EVM transfers |
 | [lifi](skills/lifi/) | Cross-chain swaps, bridging, payments, routing, and status tracking across Solana, EVM, Bitcoin, and Sui |
+| [wormhole](skills/wormhole/) | Cross-chain transfers and messaging, Token Bridge and Native Token Transfers |
 
 ### NFT & Tokens
 
 | Skill | Description |
 |-------|-------------|
 | [metaplex](skills/metaplex/) | Core, Token Metadata, Bubblegum, Candy Machine, Umi framework |
+| [bubblegum-cnft](skills/bubblegum-cnft/) | Compressed NFTs: create a tree, mint, transfer, burn, read via DAS |
 
 ### Client Development
 
@@ -115,6 +125,12 @@ npx skills add sendaifun/skills
 |-------|-------------|
 | [solana-kit](skills/solana-kit/) | Modern tree-shakeable SDK from Anza, zero dependencies |
 | [solana-kit-migration](skills/solana-kit-migration/) | Migration guide from @solana/web3.js v1.x to @solana/kit |
+| [solana-tx-doctor](skills/solana-tx-doctor/) | Diagnose and decode failed transactions, simulate before signing |
+| [solana-tx-lander](skills/solana-tx-lander/) | Land transactions under congestion with an expiry-aware confirm loop |
+| [solana-spl-token-ops](skills/solana-spl-token-ops/) | SPL and ATA lifecycle, classic vs Token-2022 detection |
+| [solana-durable-nonce](skills/solana-durable-nonce/) | Durable nonces for offline and delayed signing |
+| [anchor-idl-client](skills/anchor-idl-client/) | Work with any Anchor program from its IDL: decode accounts, parse events |
+| [solana-pay](skills/solana-pay/) | Payment requests and QR codes, verify a payment by reference |
 
 ### Program Development
 
@@ -134,6 +150,7 @@ npx skills add sendaifun/skills
 |-------|-------------|
 | [vulnhunter](skills/vulnhunter/) | Vulnerability detection, dangerous API hunting, variant analysis |
 | [code-recon](skills/zz-code-recon/) | Deep architectural context building for security audits |
+| [solana-exploit-poc](skills/solana-exploit-poc/) | Reproduce a vulnerability as a LiteSVM proof of exploit plus a regression test |
 
 ### DevOps
 
