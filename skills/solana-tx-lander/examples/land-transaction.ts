@@ -269,6 +269,90 @@ async function measureLoadedDataSize(
   return Math.max(Math.ceil(totalBytes * 1.1), 1024);
 }
 
+// ---- optional: routing + raced confirm (2026 upgrades) ---------------------
+//
+// The function above is the portable, poll-only baseline. The two helpers below
+// are the 2026 enhancements from resources/landing-2026.md. They are additive
+// and do NOT change landTransaction; wire them in when you have a staked
+// endpoint and a WebSocket-capable confirm RPC.
+//
+// 1) ROUTING (resources/routing-staked-connections.md): SEND and rebroadcast
+//    through a staked (swQoS) endpoint, CONFIRM through a normal full RPC. Many
+//    staked send endpoints (e.g. Helius Sender) are send-only and do not answer
+//    status queries, so split the two connections. It is the SAME signed bytes,
+//    just a different send URL:
+//
+//      const sender = new Connection(process.env.STAKED_SEND_URL!, "confirmed");
+//      const rpc    = new Connection(process.env.RPC_URL!,        "confirmed");
+//      // send / rebroadcast through stake, confirm through the full RPC:
+//      await sender.sendRawTransaction(raw, { skipPreflight: true, maxRetries: 0 });
+//      const { value } = await rpc.getSignatureStatuses([signature]);
+//
+//    Pass `sender` where landTransaction sends and `rpc` where it confirms.
+//
+// 2) RACED CONFIRM: race a WebSocket signatureSubscribe (connection.onSignature)
+//    against the getSignatureStatuses poll. Whichever resolves first wins; the
+//    poll is the backstop if the socket drops. Before declaring DROPPED on
+//    block-height expiry, do ONE final getSignatureStatuses check to guard the
+//    "block height exceeded but actually landed" false negative.
+
+/** Resolve as soon as the signature subscription fires (Landed or Reverted). */
+function awaitSignatureSubscription(
+  rpc: Connection,
+  signature: string,
+  commitment: "confirmed" | "finalized"
+): Promise<LandResult> {
+  return new Promise<LandResult>((resolve) => {
+    // onSignature fires once at the requested commitment. err === null => landed
+    // and succeeded; err !== null => landed and reverted (do NOT resend).
+    const subId = rpc.onSignature(
+      signature,
+      (result, context) => {
+        if (result.err) resolve({ status: "reverted", signature, err: result.err });
+        else resolve({ status: "confirmed", signature, slot: context.slot });
+      },
+      commitment
+    );
+    // Best-effort cleanup once we have resolved.
+    void Promise.resolve().then(async () => {
+      await sleep(HARD_TIMEOUT_MS);
+      try {
+        await rpc.removeSignatureListener(subId);
+      } catch {
+        // listener already gone; ignore.
+      }
+    });
+  });
+}
+
+/**
+ * Race the WebSocket subscription against the existing poll/rebroadcast loop.
+ * `rpc` must be a confirm-capable full RPC (it answers getSignatureStatuses,
+ * getBlockHeight, and subscriptions). Pass the staked send endpoint as `rpc`
+ * only if it also answers those; otherwise keep send and confirm separate and
+ * let confirmWithRetry rebroadcast through the confirm RPC. Falls back cleanly
+ * to poll-only behavior when the subscription never fires.
+ *
+ * Note the false-negative guard: confirmWithRetry only returns "dropped" after
+ * checking the signature status first in the same iteration the block height is
+ * exceeded, so a tx that lands in the expiry slot is reported as confirmed, not
+ * dropped. For extra safety against a lagging RPC you can do one more
+ * getSignatureStatuses([signature]) after a "dropped" result before rebuilding.
+ */
+export async function confirmRaced(
+  rpc: Connection,
+  raw: Uint8Array,
+  signature: string,
+  lastValidBlockHeight: number,
+  commitment: "confirmed" | "finalized" = "confirmed"
+): Promise<LandResult> {
+  const subscription = awaitSignatureSubscription(rpc, signature, commitment);
+  // confirmWithRetry already polls + rebroadcasts + guards expiry; reuse it as
+  // the backstop using its real existing signature.
+  const poll = confirmWithRetry(rpc, raw, signature, lastValidBlockHeight, commitment);
+  return Promise.race([subscription, poll]);
+}
+
 // ---- runnable demo ---------------------------------------------------------
 
 async function main() {
