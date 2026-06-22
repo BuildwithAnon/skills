@@ -115,6 +115,9 @@ npx skills add sendaifun/skills
 |-------|-------------|
 | [solana-kit](skills/solana-kit/) | Modern tree-shakeable SDK from Anza, zero dependencies |
 | [solana-kit-migration](skills/solana-kit-migration/) | Migration guide from @solana/web3.js v1.x to @solana/kit |
+| [solana-tx-doctor](skills/solana-tx-doctor/) | Diagnose and decode failed transactions, simulate before signing |
+| [solana-tx-lander](skills/solana-tx-lander/) | Land transactions under congestion with an expiry-aware confirm loop |
+| [solana-spl-token-ops](skills/solana-spl-token-ops/) | SPL and ATA lifecycle, classic vs Token-2022 detection |
 
 ### Program Development
 
@@ -134,6 +137,7 @@ npx skills add sendaifun/skills
 |-------|-------------|
 | [vulnhunter](skills/vulnhunter/) | Vulnerability detection, dangerous API hunting, variant analysis |
 | [code-recon](skills/zz-code-recon/) | Deep architectural context building for security audits |
+| [solana-exploit-poc](skills/solana-exploit-poc/) | Reproduce a vulnerability as a LiteSVM proof of exploit plus a regression test |
 
 ### DevOps
 
