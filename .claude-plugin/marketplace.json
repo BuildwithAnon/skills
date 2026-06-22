@@ -238,6 +238,24 @@
       "category": "Client Development"
     },
     {
+      "name": "solana-spl-token-ops",
+      "source": "./skills/solana-spl-token-ops",
+      "description": "SPL token and Associated Token Account lifecycle: auto-detect classic vs Token-2022, idempotent ATA creation, decimals-safe transferChecked, wrap and unwrap WSOL, and close accounts to reclaim rent",
+      "category": "Client Development"
+    },
+    {
+      "name": "solana-tx-doctor",
+      "source": "./skills/solana-tx-doctor",
+      "description": "Diagnose and decode failed Solana transactions and simulate before signing: classify the failure, decode native and Anchor 6xxx error codes via the IDL, locate the failing instruction from the CPI log stack, and return a concrete retry-safe remediation",
+      "category": "Client Development"
+    },
+    {
+      "name": "solana-tx-lander",
+      "source": "./skills/solana-tx-lander",
+      "description": "Reliably land Solana transactions under congestion: build with address lookup tables, simulate to size compute units, set priority fees, send with maxRetries 0, and confirm with an expiry-aware rebroadcast loop instead of the broken confirmTransaction-by-blockhash flow",
+      "category": "Client Development"
+    },
+    {
       "name": "svm",
       "source": "./skills/svm",
       "description": "Explore Solana's architecture and protocol internals including the SVM execution engine, account model, consensus, transactions, and validator economics",
