@@ -296,6 +296,90 @@
       "source": "./skills/zz-code-recon",
       "description": "Deep architectural context building for security audits and codebase reconnaissance",
       "category": "Security"
+    },
+    {
+      "name": "streamflow",
+      "source": "./skills/streamflow",
+      "description": "Token vesting and streaming payments on Solana with Streamflow: create vesting contracts and streams, withdraw, cancel, transfer, and top up, with cliffs and periods",
+      "category": "DeFi"
+    },
+    {
+      "name": "bubblegum-cnft",
+      "source": "./skills/bubblegum-cnft",
+      "description": "Metaplex Bubblegum compressed NFTs: create a Merkle tree, mint, transfer, and burn cNFTs, and read them via the DAS API with asset proofs",
+      "category": "NFT & Tokens"
+    },
+    {
+      "name": "wormhole",
+      "source": "./skills/wormhole",
+      "description": "Wormhole cross-chain transfers and messaging for Solana: Token Bridge wrapped transfers, Native Token Transfers (NTT), the VAA lifecycle, and redemption to and from EVM",
+      "category": "Cross-Chain"
+    },
+    {
+      "name": "tensor",
+      "source": "./skills/tensor",
+      "description": "Trade NFTs on the Tensor marketplace: read floors and listings, buy, list, sell, and place collection and trait bids for regular and compressed NFTs via the Tensor API",
+      "category": "Trading"
+    },
+    {
+      "name": "solana-name-service",
+      "source": "./skills/solana-name-service",
+      "description": "Resolve and manage .sol domains with Solana Name Service: resolve a name to its owner, reverse lookup, list a wallet's domains, read the primary domain, and register",
+      "category": "Infrastructure"
+    },
+    {
+      "name": "spl-governance",
+      "source": "./skills/spl-governance",
+      "description": "Participate in SPL Governance and Realms DAOs on Solana: read a realm, deposit governing tokens, create a proposal, cast a vote, and execute",
+      "category": "Infrastructure"
+    },
+    {
+      "name": "jito-staking",
+      "source": "./skills/jito-staking",
+      "description": "Jito liquid staking and restaking on Solana: stake SOL for JitoSOL via the SPL stake pool, unstake, and deposit into Jito restaking vaults for VRTs",
+      "category": "DeFi"
+    },
+    {
+      "name": "irys-storage",
+      "source": "./skills/irys-storage",
+      "description": "Permanent Arweave storage paid with SOL via Irys: upload files and NFT metadata, fund the uploader, and get the permanent gateway URL",
+      "category": "Infrastructure"
+    },
+    {
+      "name": "solana-native-staking",
+      "source": "./skills/solana-native-staking",
+      "description": "Native Solana stake accounts: create, delegate to a validator, deactivate, withdraw, split, and merge stake, including activation and cooldown handling",
+      "category": "DeFi"
+    },
+    {
+      "name": "yellowstone-grpc-stream",
+      "source": "./skills/yellowstone-grpc-stream",
+      "description": "Real-time Solana data via Yellowstone Geyser gRPC: subscribe to account, transaction, slot, and block updates with low latency, provider agnostic",
+      "category": "Infrastructure"
+    },
+    {
+      "name": "solana-durable-nonce",
+      "source": "./skills/solana-durable-nonce",
+      "description": "Durable nonces on Solana for offline and delayed signing: create a nonce account, build a transaction that uses the stored nonce, and advance it safely",
+      "category": "Client Development"
+    },
+    {
+      "name": "anchor-idl-client",
+      "source": "./skills/anchor-idl-client",
+      "description": "Work with any Anchor program from its IDL: build a typed client, fetch the on-chain IDL, decode account data, and parse events and logs",
+      "category": "Client Development"
+    },
+    {
+      "name": "solana-exploit-poc",
+      "source": "./skills/solana-exploit-poc",
+      "description": "Reproduce a Solana program vulnerability as a runnable LiteSVM proof of exploit, then lock the fix with a passing regression test",
+      "category": "Security"
+    },
+    {
+      "name": "solana-pay",
+      "source": "./skills/solana-pay",
+      "description": "Solana Pay payment requests: build transfer-request and transaction-request URLs and QR codes, and verify a completed on-chain payment by reference",
+      "category": "Client Development"
     }
   ]
 }
