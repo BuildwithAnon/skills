@@ -8,11 +8,11 @@ metadata:
 
 # Land a Solana Transaction Under Congestion
 
-Reliably get a Solana transaction confirmed when the network is busy, by owning every step from build to confirmation instead of trusting an RPC default. This is the single most common agent failure mode: a transaction is sent, the RPC reports nothing useful, and the agent either declares success that never happened or resends a transaction that already landed.
+Get a Solana transaction confirmed when the network is busy by owning every step from build to confirmation, never trusting an RPC default to do it for you. Sending and hoping is the single most common agent failure mode on Solana: the transaction goes out, the RPC reports nothing useful, and the agent either claims a success that never happened or resends one that already landed.
 
 ## Overview
 
-A Solana transaction lands when it is included in a block before its blockhash expires. Three things break that:
+A Solana transaction lands when a leader includes it in a block before its blockhash expires. Three things break that:
 
 1. **Blockhash expiry.** Every transaction carries a recent blockhash and is only valid for about 150 blocks (roughly 60 to 90 seconds). After that the network rejects it permanently. The `lastValidBlockHeight` returned with the blockhash is the exact block height past which the transaction is dead.
 2. **Under-pricing.** During congestion a transaction with no priority fee, or one with a bloated compute-unit limit, schedules behind everything else and never gets picked up.
@@ -120,7 +120,7 @@ On a DROPPED result, the transaction never executed, so it is safe to **rebuild 
 
 ### 7. (Optional) Alternate landing path: Jito bundle
 
-If the default loop keeps dropping under heavy congestion, or you need atomic ordering, you can land via a Jito bundle instead of plain `sendRawTransaction`. Add a tip as a `SystemProgram.transfer` to a Jito tip account as the last instruction, submit with `sendBundle`, and poll bundle status. The mechanics, tip sizing, and endpoints are in the `jito-bundles` skill. Treat this as an alternate path, not the default, and only reach for it when the standard send is losing the fee race or you genuinely need atomicity.
+When the default loop keeps dropping under heavy congestion, or you need atomic ordering, land via a Jito bundle instead of plain `sendRawTransaction`. Add a tip as a `SystemProgram.transfer` to a Jito tip account as the last instruction, submit with `sendBundle`, and poll bundle status. The mechanics, tip sizing, and endpoints live in the `jito-bundles` skill. Reach for this only when the standard send is losing the fee race or you genuinely need atomicity; it is an alternate path, not the default.
 
 ## Examples
 

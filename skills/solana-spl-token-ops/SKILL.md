@@ -8,9 +8,9 @@ metadata:
 
 # Solana SPL Token Operations
 
-Build and operate the everyday SPL token flows an agent reaches for constantly: send tokens, create the recipient's Associated Token Account (ATA) so the transfer lands, read decimals so amounts are correct, wrap and unwrap SOL, and close empty accounts to get the rent back. This skill is program-aware: it auto-detects whether a mint is owned by the classic Token program or Token-2022 and threads the right program id through every call, which is the single most common source of SPL bugs.
+Two token programs now share Solana, classic Token and Token-2022, and mixing them up is the bug that bites SPL integrations more than any other: derive an ATA with the wrong program id and you get a valid-looking but unrelated address, a confusing `TokenAccountNotFoundError`, and a transfer that goes nowhere. This skill detects which program owns a mint and threads that id through every call, so the everyday flows just work: send tokens, create the recipient's Associated Token Account (ATA) so the transfer lands, read decimals so amounts are right, wrap and unwrap SOL, and close empty accounts to reclaim rent.
 
-This is the action layer for fungible tokens. For minting tokens with extensions (transfer fees, on-chain metadata, hooks, soulbound), load `token-2022`. For NFTs, load the Metaplex skill. For swaps, load Jupiter.
+This is the action layer for fungible tokens. To mint tokens with extensions (transfer fees, on-chain metadata, hooks, soulbound), load `token-2022`. For NFTs, load the Metaplex skill. For swaps, load Jupiter.
 
 ## Overview
 

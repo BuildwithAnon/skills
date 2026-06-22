@@ -8,13 +8,13 @@ metadata:
 
 # Solana Transaction Doctor
 
-A structured procedure for turning an opaque Solana transaction failure into a named cause, the exact failing instruction and program, and a concrete remediation, plus a simulate-before-sign gate so the agent never signs a transaction it has not first checked.
+Turn an opaque Solana transaction failure into a named cause, the exact failing instruction and program, and a concrete next action, then never sign blind again thanks to a simulate-before-sign gate.
 
 ## Overview
 
-Every agent that sends Solana transactions eventually hits a failure it cannot read: a bare `{ InstructionError: [1, { Custom: 6001 }] }`, a `"BlockhashNotFound"`, a log wall ending in `custom program error: 0x1771`. Protocol integration skills tell an agent how to build the call; none of them tell it what to do when the call comes back broken. This skill closes that loop.
+A failed Solana transaction in production almost never says why. You get a bare `{ InstructionError: [1, { Custom: 6001 }] }`, a `"BlockhashNotFound"`, or a log wall ending in `custom program error: 0x1771`, and the agent stalls: it either retries a transaction that already reverted (burning fees, sometimes replaying an effect) or gives up on one it could have recovered. Protocol integration skills teach an agent to build the call; this one teaches it to read the wreckage when the call comes back broken and to act safely on what it reads.
 
-The procedure is always the same four steps: **classify -> decode -> locate -> remediate**. A fifth path, **simulate-before-sign**, runs the same machinery on an unsigned transaction so you catch the failure before it costs a fee.
+The procedure is the same four steps every time: **classify -> decode -> locate -> remediate**. A fifth path, **simulate-before-sign**, runs the same machinery on an unsigned transaction so a failure is caught before it costs a lamport.
 
 Use this skill when you have any of these three inputs:
 1. A failed transaction **signature** (you can fetch it from RPC).
@@ -25,7 +25,7 @@ This skill is read-only diagnosis and simulation. It never blind-resends. It com
 
 ## Instructions
 
-Run the steps in order. Each step has an exit condition. Stop early only when the failure class is already fully resolved (for example, a `BlockhashNotFound` needs no instruction-level decode).
+Run the steps in order. Each has an exit condition. Stop early when the class is already fully resolved (a `BlockhashNotFound` needs no instruction-level decode).
 
 ### Step 0: Identify the input
 
