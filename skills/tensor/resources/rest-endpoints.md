@@ -61,7 +61,7 @@ Notes on key params:
 
 - `txs[0].txV0` is the field you use: base64 -> `VersionedTransaction.deserialize`.
 - `lastValidBlockHeight` is what you confirm against.
-- Bid endpoints additionally surface a `bidState` address (persist it; it becomes the `bidAddress` to fill or cancel the bid). Treat its exact location as ALPHA-mutable and read it defensively.
+- Bid endpoints also return a `bidState` address (persist it; it becomes the `bidAddress` to fill or cancel the bid). Treat its exact location as ALPHA-mutable and read it defensively.
 
 ## Read endpoints
 

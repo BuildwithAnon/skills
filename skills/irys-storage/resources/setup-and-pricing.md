@@ -85,7 +85,7 @@ irys.utils.fromAtomic(price);  // atomic -> human SOL, for display only
 
 On mainnet, payloads under roughly **100 KiB** are free to upload. So a typical NFT metadata JSON (a few KB) usually uploads with no funding, while a full-resolution image typically does not.
 
-Flag: the ~100 KiB free threshold is documented behavior, not a guarantee. If the exact cutoff matters to your flow (for example deciding whether to skip funding programmatically), the robust pattern is to call `getPrice(size)` and only fund when it returns greater than `0`. Confirm the current threshold in the Irys docs if it is load-bearing.
+Flag: the ~100 KiB free threshold is documented behavior, not a guarantee. If the exact cutoff matters to your flow (for example deciding whether to skip funding programmatically), the solid pattern is to call `getPrice(size)` and only fund when it returns greater than `0`. Confirm the current threshold in the Irys docs if it is load-bearing.
 
 ## Core methods
 
