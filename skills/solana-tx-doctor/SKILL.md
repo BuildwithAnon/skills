@@ -1,6 +1,6 @@
 ---
 name: solana-tx-doctor
-description: Diagnose, decode, and recover from Solana transaction failures, and simulate any transaction before signing. Use when a transaction failed, an RPC or simulation returned an opaque error object, you see a custom program error (Custom 6001, Anchor 6xxx, "custom program error: 0x1771"), a TransactionError variant (BlockhashNotFound, InsufficientFundsForRent, AccountNotFound, AlreadyProcessed), a dropped or expired transaction, a compute-budget-exceeded failure, or you need to decide go/no-go before sending. Keywords: transaction failed, decode error, custom program error, Anchor 6xxx, simulation failed, blockhash expired, debug Solana transaction, why did my tx revert.
+description: Diagnose, decode, and recover from Solana transaction failures, and simulate any transaction before signing. Use when a transaction failed, an RPC or simulation returned an opaque error object, you see a slippage or DEX custom error ("custom program error: 0x1771", Custom 6001, Jupiter/Raydium/Orca/pump.fun/Meteora swap revert), any Anchor custom error (Anchor 6xxx) or framework code (Constraint 2xxx, Account 3xxx), a TransactionError variant (BlockhashNotFound, InsufficientFundsForRent, InsufficientFundsForFee, AccountInUse, TooManyAccountLocks, AddressLookupTableNotFound, AlreadyProcessed), a dropped vs reverted question, a compute-budget-exceeded failure, a CPI failure deep in the stack, or you need to decide go/no-go before sending. Keywords: transaction failed, slippage exceeded, 0x1771, decode error, custom program error, Anchor 6xxx, simulation failed, blockhash expired, dropped transaction, compute budget exceeded, CPI failed, Token-2022 transfer hook, debug Solana transaction, why did my tx revert.
 metadata:
   author: "BuildwithAnon"
   version: "1.0.0"
@@ -22,6 +22,16 @@ Use this skill when you have any of these three inputs:
 3. An **unsigned transaction** you are about to send and want to vet first.
 
 This skill is read-only diagnosis and simulation. It never blind-resends. It complements source-bug skills (`vulnhunter`, `zz-code-recon`) and holdings skills (`wallet-analysis`): those find bugs in code or report balances; this one explains a live runtime failure.
+
+## Slippage first: the 0x1771 default hypothesis
+
+Helius post-mortems report that **over 80% of failed Solana transactions are `0x1771` (decimal 6001), which means "exceeded desired slippage."** If a swap failed, slippage is the most likely cause by a wide margin, so make it your first hypothesis before anything more exotic.
+
+`0x1771` is hex; convert it: `parseInt("0x1771", 16) === 6001`. It is the second entry of an Anchor `#[error_code]` enum (which starts at 6000), which is why so many DEX programs land on exactly this number for their slippage check. Confirm the meaning against the SPECIFIC program that reverted, because the same number is a different error in a different program.
+
+A slippage failure **landed and reverted**: the fee was burned and the swap did not happen. It is NOT safe to blind-retry. The fix is always the same shape: do not resend the same bytes, refresh the quote (the old one is stale, that is why it reverted), widen tolerance (raise `slippageBps`; for pump.fun raise `max_sol_cost` or lower `min_sol_output`), rebuild on a fresh blockhash, and optionally add a priority fee so the fresh quote lands in time.
+
+The per-program slippage and swap error codes for Jupiter, Raydium, Orca, pump.fun, and Meteora are in `resources/dex-error-codes.md`. Identify the failing program from the CPI stack, then look the code up in THAT program's IDL or that table.
 
 ## Instructions
 
@@ -51,6 +61,19 @@ const tx = await connection.getTransaction(signature, {
 
 **Success criterion:** You have `err` (a `TransactionError`) and `logs` (the program log array), or you have classified the tx as dropped/succeeded.
 
+### Step 1b: Dropped vs reverted (the detection that prevents fund-loss bugs)
+
+This is a named decision because confusing the two states is the most expensive mistake an agent makes. They demand opposite actions.
+
+- **DROPPED (never executed):** `getSignatureStatuses([sig], { searchTransactionHistory: true })` returns a `null` status AND current block height has passed `lastValidBlockHeight`. Nothing landed, no fee was charged, there is no on-chain record. It is **safe to rebuild and resend** with a fresh blockhash. A `null` status while height is still below `lastValidBlockHeight` is NOT dropped: it is in flight, so wait, do not resend.
+- **REVERTED (executed then failed):** `getTransaction` returns a record with `meta.err !== null`. It landed, the fee was burned, the logic failed. It is **final**. Do NOT blindly resend: the signature already exists on chain, resending the same bytes does nothing useful, and rebuilding-and-resending can re-run an unintended effect. Fix the cause, then send a NEW transaction only if the operation genuinely did not happen.
+
+**Idempotency safety line: if a record exists, it already landed, do not resend.** Resend ONLY a transaction you have positively confirmed is DROPPED by the two-part test above. When in doubt, treat it as landed and do not resend.
+
+The decision in one line: `status === null && height > lastValidBlockHeight` means DROPPED (rebuild + resend on a fresh blockhash); a fetched record with `meta.err` means REVERTED (final, fix the cause, never blind-resend).
+
+**Success criterion:** Every transaction is labeled DROPPED or REVERTED before any resend is considered.
+
 ### Step 2: Classify the failure
 
 Map `err` to exactly one class. See `resources/error-classes.md` for the full taxonomy and variant table. The decision tree:
@@ -58,10 +81,10 @@ Map `err` to exactly one class. See `resources/error-classes.md` for the full ta
 1. `err` is the string `"BlockhashNotFound"` or `"AlreadyProcessed"`, or the tx was not found at all -> **dropped / blockhash-expired** (the transaction never executed).
 2. `err` is an object `{ InsufficientFundsForRent: { account_index } }` -> **rent** class.
 3. `err` is an object `{ InstructionError: [index, detail] }` -> a per-instruction failure. Read `detail`:
-   - `detail === { Custom: N }` and `N >= 6000` -> **Anchor custom error** class.
-   - `detail === { Custom: N }` and `N < 6000` -> **native / built-in program error** class (often SPL Token, e.g. `0x1 = 1` insufficient funds).
+   - `detail === { Custom: N }` and `N >= 6000` -> **Anchor custom error** class. **If the failing program is a DEX and `N` is `6001` (`0x1771`), default to the slippage hypothesis** (see the dedicated section below): over 80% of failed Solana transactions are this. Confirm against the program's IDL or `resources/dex-error-codes.md`.
+   - `detail === { Custom: N }` and `N < 6000` -> **native / built-in program error** class (often SPL Token, e.g. `0x1 = 1` insufficient funds). Resolve against the program that reverted using `resources/native-program-errors.md`.
    - `detail` is a string like `"PrivilegeEscalation"`, `"ProgramFailedToComplete"`, `"ComputeBudgetExceeded"` -> **raw InstructionError variant** class. `"ComputeBudgetExceeded"` is the **compute-budget** class specifically.
-4. `err` is any other bare string or object with no `InstructionError` (e.g. `"AccountNotFound"`, `"AccountInUse"`, `"SignatureFailure"`) -> **transaction-level error** class.
+4. `err` is any other bare string or object with no `InstructionError` (e.g. `"AccountNotFound"`, `"AccountInUse"`, `"SignatureFailure"`, `"TooManyAccountLocks"`, `"AddressLookupTableNotFound"`, `{ DuplicateInstruction: i }`, `{ ProgramExecutionTemporarilyRestricted: { account_index } }`, `"UnbalancedTransaction"`) -> **transaction-level error** class. See the full enum in `resources/error-classes.md`.
 
 Record `instructionIndex = err.InstructionError?.[0]` when present: you need it in Step 3.
 
@@ -69,15 +92,21 @@ Record `instructionIndex = err.InstructionError?.[0]` when present: you need it 
 
 ### Step 3: Decode the cause
 
-The goal is a human-readable name and message. See `resources/decode-reference.md` for every decode path. Order of attempts:
+The goal is a human-readable name and message. See `resources/decode-reference.md` for every decode path. Orchestrate the OFFICIAL primitives so the doctor never falls behind upstream:
+
+- `@solana/errors`: `getSolanaErrorFromTransactionError(err)` and `getSolanaErrorFromInstructionError(index, detail)` decode the raw RPC `TransactionError` / `InstructionError` shapes into typed `SolanaError` objects (the framework and runtime variants). `isSolanaError(e)` is the type guard. CLI: `npx @solana/errors decode <code>`.
+- `@solana-developers/helpers`: `decodeAnchorTransaction(connection, signature)` auto-fetches each program's IDL by program id and decodes the instruction names, args, and accounts. `getSimulationComputeUnits(connection, instructions, payer, lookupTables?)` returns the consumed CU for sizing the budget.
+- These cover everything except your program's own `Custom: >= 6000` codes, which you still resolve against the IDL `errors` array (path 3 below). Keep the offline registry GENERATED from `@solana/errors` plus on-chain IDLs, not hand-maintained, so it never drifts. `examples/decode-with-official-primitives.ts` runs this.
+
+Order of attempts:
 
 1. **Parse the logs first.** Anchor already prints the answer in most cases:
    `Program log: AnchorError occurred. Error Code: SlippageExceeded. Error Number: 6001. Error Message: ...`. Native programs and `require!`-style checks also log human strings. If a decoded `Error Code`/`Error Message` line exists, you are done: use it.
-2. **Convert hex codes.** A log line `custom program error: 0x1771` carries the code in hex. Parse it: `parseInt("0x1771", 16) === 6001`. Then resolve that number as in step 3 or 4.
-3. **IDL lookup by code (Anchor custom, code >= 6000).** Load the failing program's IDL (`Program.fetchIdl(programId, provider)` to pull it from the on-chain IDL account, or a bundled copy). Find `idl.errors.find(e => e.code === N)` -> `{ code, name, msg }`. Report `name` and `msg`.
-4. **Anchor framework ranges (code >= 100 and < 6000).** These are built-in Anchor errors, not your program's. Resolve the range to a meaning: Instruction ~100, Constraint 2000-2999, Account 3000-3999, etc. See the range table in `resources/error-classes.md`.
-5. **Native code (code < 100, or string InstructionError variant).** Resolve against the offending program. For SPL Token codes use the `TokenError` mapping (`1 = InsufficientFunds`, `4 = OwnerMismatch`, etc.). For SDK / system-level errors use `@solana/errors`: `npx @solana/errors decode <code>` from the CLI, or `isSolanaError(e)` plus the package decoder in code.
-6. **Third-party fallback.** If the code belongs to a program whose IDL you cannot fetch, resolve against an offline registry (the community `tenequm/solana-idls` bundle, ~1,914 error defs across 41 protocols) keyed by `(programId, code)`. If still unknown, report the raw code and the program id and say it is unresolved rather than guessing.
+2. **Normalize hex and decimal.** A log line `custom program error: 0x1771` carries the code in hex; `meta.err` and IDLs use decimal. Convert on sight: `parseInt("0x1771", 16) === 6001`. Then route by range: `< 100` native, `100..5999` Anchor framework-reserved, `>= 6000` the program's own IDL.
+3. **IDL lookup by code (Anchor custom, code >= 6000, with the 6000 base).** Load the failing program's IDL (`Program.fetchIdl(programId, provider)` from the on-chain IDL account, `decodeAnchorTransaction`, or a bundled copy). The enum index is `code - 6000`, but the IDL stores the absolute code: `idl.errors.find(e => e.code === N)` -> `{ code, name, msg }`. Report `name` and `msg`.
+4. **Anchor framework-reserved ranges (code >= 100 and < 6000).** These are built-in Anchor errors, not your program's, so they are NOT in your IDL `errors` array. Resolve the range to a meaning: Instruction 100-999, IDL 1000-1999, Constraint 2000-2999 (`2001 ConstraintHasOne`, `2006 ConstraintSeeds`), Account 3000-3999 (`3007 AccountOwnedByWrongProgram`, `3012 AccountNotInitialized`), `4100 DeclaredProgramIdMismatch`, deprecated/misc 5000-5999. See the full range table in `resources/decode-reference.md` and `resources/error-classes.md`.
+5. **Native code (code < 100, or string InstructionError variant).** Resolve against the offending program using `resources/native-program-errors.md` (System, Associated Token, Token-2022 extensions, Compute Budget, Address Lookup Table, Stake, Vote). For classic SPL Token use the `TokenError` mapping (`1 = InsufficientFunds`, `4 = OwnerMismatch`). For SDK / system-level errors use `@solana/errors`.
+6. **Third-party fallback (generated registry).** If the code belongs to a program whose IDL you cannot fetch, resolve against an offline registry GENERATED from on-chain IDLs (the community `tenequm/solana-idls` bundle, ~1,914 error defs across 41 protocols, is a snapshot to regenerate from) keyed by `(programId, code)`. If still unknown, report the raw code and the program id and say it is unresolved rather than guessing.
 
 **Success criterion:** You have a named error (or an explicit "unresolved code N from program P") plus a one-line meaning.
 
@@ -95,9 +124,16 @@ Program JUP... invoke [1]        <- top-level instruction 1
 Program JUP... failed: ...
 ```
 
-So a `Custom: 6001` on instruction index 1 is Orca's `SlippageExceeded`, not Jupiter's. See the CPI-stack parser in `examples/diagnose-signature.ts`.
+So a `Custom: 6001` on instruction index 1 is the AMM's slippage error, not Jupiter's.
 
-**Success criterion:** You can name (a) the top-level instruction index, (b) the program that actually reverted, and (c) for rent/funds errors, the account index involved.
+For a precise attribution, do three things (full procedure in `resources/decode-reference.md` Path 8, runnable in `examples/cpi-stack-trace.ts`):
+1. Reconstruct the stack from the logs; the deepest frame open at the first `failed` is the program that reverted.
+2. **Align to `innerInstructions`** from `getTransaction(sig, { maxSupportedTransactionVersion: 0 })` (or `simulateTransaction(..., { innerInstructions: true })`) to confirm the log reading against on-chain structure.
+3. **Resolve account roles through Address Lookup Tables** for v0 transactions: fetch each table in `message.addressTableLookups` with `connection.getAddressLookupTable(...)`, then `message.getAccountKeys({ addressLookupTableAccounts })` maps every index to a pubkey.
+
+Then output an **indented tree plus a verdict**, for example: `failing program = X at depth 2, called by top-level ix #1`.
+
+**Success criterion:** You can name (a) the top-level instruction index, (b) the program that actually reverted and its depth, and (c) for rent/funds errors, the account index involved, plus an indented CPI tree and a one-line verdict.
 
 ### Step 5: Remediate
 
@@ -118,22 +154,23 @@ Map the class to a concrete next action. See the full remediation map in `resour
 
 ### Simulate-Before-Sign (preventive path)
 
-Run this on an **unsigned** transaction before it is ever signed.
+Run this on an **unsigned** transaction before it is ever signed. Harden the simulation with three flags: `sigVerify: false` (it is not signed), `replaceRecentBlockhash: true` (ignore a stale/missing blockhash for the dry run), and `innerInstructions: true` (so the CPI structure comes back for attribution).
 
 ```ts
 const sim = await connection.simulateTransaction(tx, {
-  sigVerify: false,            // tx is not signed yet
+  sigVerify: false,             // tx is not signed yet
   replaceRecentBlockhash: true, // ignore a stale/missing blockhash for the dry run
+  innerInstructions: true,      // return inner instructions for CPI attribution
 });
 ```
 
-`sim.value` returns `{ err, logs, unitsConsumed, accounts, returnData }`. Then:
+`sim.value` returns `{ err, logs, unitsConsumed, accounts, returnData, innerInstructions }`. Then:
 
-1. If `sim.value.err !== null`, feed `err` and `logs` into Steps 2 through 4 above and return **no-go** with the decoded reason.
+1. If `sim.value.err !== null`, feed `err` and `logs` into Steps 2 through 4 above (use `innerInstructions` for the CPI attribution) and return **no-go** with the decoded reason.
 2. If `err === null`, report `unitsConsumed`, the programs touched (from `invoke` log lines), the writable accounts, and (if requested) pre/post SOL and token balance deltas computed from `accounts`. Return **go**.
-3. Use `unitsConsumed` to set the real compute limit before signing: `setComputeUnitLimit(unitsConsumed * 1.15)` rounded up. This prevents the compute-budget-exceeded class entirely.
+3. **Pre-empt ComputeBudgetExceeded.** Read `unitsConsumed` to size the limit before signing. The cleanest path is `getSimulationComputeUnits(connection, instructions, payer, lookupTables?)` from `@solana-developers/helpers`, then prepend `ComputeBudgetProgram.setComputeUnitLimit(Math.ceil(units * 1.1))` (a bit of headroom). This prevents the compute-budget class entirely. Cap awareness: the per-transaction limit is 1,400,000 CU; if you need more, split the transaction.
 
-**Success criterion:** A go/no-go verdict with `unitsConsumed`, programs touched, and (on no-go) the same structured diagnosis as the post-mortem path.
+**Success criterion:** A go/no-go verdict with `unitsConsumed`, a recommended CU limit, programs touched, and (on no-go) the same structured diagnosis as the post-mortem path.
 
 ## Examples
 
@@ -195,10 +232,17 @@ DIAGNOSIS
 
 User input: "Here is an unsigned VersionedTransaction, is it safe to send?"
 
-The agent runs `examples/simulate-before-sign.ts`: `simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true })`. On `err === null` it reports `unitsConsumed: 41320`, programs touched `[System, Token, whirL...]`, payer SOL delta `-0.002 SOL`, and verdict **GO**, plus a recommended `setComputeUnitLimit(47518)`. On any `err` it returns **NO-GO** with the decoded reason from Steps 2 to 4, before a single lamport is spent.
+The agent runs `examples/simulate-before-sign.ts`: `simulateTransaction(tx, { sigVerify: false, replaceRecentBlockhash: true, innerInstructions: true })`. On `err === null` it reports `unitsConsumed: 41320`, programs touched `[System, Token, whirL...]`, payer SOL delta `-0.002 SOL`, and verdict **GO**, plus a recommended `setComputeUnitLimit(47518)`. On any `err` it returns **NO-GO** with the decoded reason from Steps 2 to 4, before a single lamport is spent.
+
+### Example 4: More worked cases
+
+`examples/golden-cases.md` carries seven concise end-to-end diagnoses as copy-ready templates: a Jupiter `0x1771` slippage failure, an Anchor `6001` resolved via the IDL `errors` array, a `ComputeBudgetExceeded` with the exact CU fix, an `InsufficientFundsForRent` with the exact lamports to top up, a Token-2022 transfer-hook CPI failure two levels deep, a blockhash-expired dropped transaction (safe to resend), and a versioned transaction using Address Lookup Tables.
 
 ## Guidelines
 
+- **DO** label every transaction DROPPED or REVERTED before considering a resend. Only DROPPED (null status past `lastValidBlockHeight`) is safe to resend; a fetched record means it landed, so do not resend it.
+- **DO** make slippage your first hypothesis for a failed swap. `0x1771` (6001) on a DEX is the >80% case; confirm it against the failing program's IDL or `resources/dex-error-codes.md`.
+- **DO** orchestrate the official primitives (`@solana/errors`, `decodeAnchorTransaction`, `getSimulationComputeUnits`) before hand-parsing, and keep any offline registry generated from them so it never drifts.
 - **DO** classify before decoding. The class decides whether you even need an instruction-level decode and whether a retry is ever safe.
 - **DO** parse the program logs before reaching for the IDL. Anchor and most programs already log the decoded error; the IDL lookup is the fallback, not the first move.
 - **DO** convert hex codes from logs (`0x1771`) to decimal before resolving them.
@@ -243,13 +287,20 @@ A causes-and-solutions table for the main `TransactionError` shapes. Full taxono
 
 ## References
 
-- `resources/error-classes.md` - classification taxonomy, `TransactionError` variant table, Anchor framework error ranges, and the full remediation map.
-- `resources/decode-reference.md` - native vs Anchor vs hex decode paths, the IDL `errors`-array lookup, `@solana/errors` CLI, and the offline registry + on-chain IDL auto-fetch fallback.
+- `resources/error-classes.md` - dropped-vs-reverted detection, the full `TransactionError` enum, the full `InstructionError` variant map, the classification taxonomy, the per-class remediation playbook (with exact rent lamports), and the security rules.
+- `resources/decode-reference.md` - hex/decimal normalization, the 6000 base and Anchor framework-reserved ranges, the IDL `errors`-array lookup, the official-primitives orchestration (`@solana/errors`, `decodeAnchorTransaction`, `getSimulationComputeUnits`), the generated registry, and CPI-stack reconstruction with ALT resolution.
+- `resources/dex-error-codes.md` - the slippage / `0x1771` family: per-program swap error codes for Jupiter, Raydium, Orca, pump.fun, and Meteora, plus the one slippage remediation.
+- `resources/native-program-errors.md` - error tables for System, Associated Token, Token-2022 (extension errors), Compute Budget, Address Lookup Table, Stake, and Vote.
 - `examples/diagnose-signature.ts` - fetch, classify, decode (logs first, IDL fallback), CPI-stack locate, structured diagnosis with remediation. Runnable with `@solana/web3.js`.
+- `examples/decode-with-official-primitives.ts` - decode via `@solana/errors` (`getSolanaErrorFromTransactionError` / `getSolanaErrorFromInstructionError` / `isSolanaError`) and `@solana-developers/helpers` `decodeAnchorTransaction`.
+- `examples/cpi-stack-trace.ts` - reconstruct the CPI stack from logs, align to `meta.innerInstructions`, resolve account roles through Address Lookup Tables, and print the tree plus a verdict.
 - `examples/simulate-before-sign.ts` - simulate an unsigned `VersionedTransaction`, report `unitsConsumed`, programs touched, balance deltas, and a go/no-go.
+- `examples/golden-cases.md` - seven worked diagnoses (Jupiter slippage, Anchor 6001 via IDL, ComputeBudgetExceeded, InsufficientFundsForRent, a Token-2022 transfer-hook CPI two levels deep, a dropped blockhash-expired tx, and a v0 transaction using ALTs).
 - Solana `getTransaction` RPC: https://solana.com/docs/rpc/http/gettransaction
 - Solana `simulateTransaction` RPC: https://solana.com/docs/rpc/http/simulatetransaction
+- Solana `getAddressLookupTable` RPC: https://solana.com/docs/rpc/http/getaddresslookuptable
 - `TransactionError` enum (agave): https://github.com/anza-xyz/agave/blob/master/sdk/transaction-error/src/lib.rs
 - Anchor error reference: https://www.anchor-lang.com/docs/errors
 - `@solana/errors` package: https://github.com/anza-xyz/kit/tree/main/packages/errors
+- `@solana-developers/helpers`: https://github.com/solana-developers/helpers
 - Community error/IDL registry: https://github.com/tenequm/solana-idls

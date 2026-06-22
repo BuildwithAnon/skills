@@ -114,6 +114,17 @@ async function main() {
   );
   await sendAndConfirmTransaction(connection, setupTx, [payer]);
 
+  // (3b) On a Token-2022 mint with DefaultAccountState=frozen, the new ATA is
+  // created FROZEN and transfers into it fail until the freeze authority thaws it.
+  // Detect and surface a clear error rather than blindly sending. (No-op for the
+  // classic demo mint, which is never frozen by default.)
+  const destAcct = await getAccount(connection, destAta, "confirmed", programId);
+  if (destAcct.isFrozen) {
+    throw new Error(
+      "recipient ATA is frozen (mint default-frozen); the freeze authority must thaw it before transfers"
+    );
+  }
+
   // Demo only: mint 1,000 tokens into the source ATA so there is a balance to send.
   await mintTo(
     connection,

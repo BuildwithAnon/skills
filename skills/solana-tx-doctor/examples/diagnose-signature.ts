@@ -236,20 +236,29 @@ function diagnose(
         };
       }
 
-      // Anchor custom (>= 6000): IDL fallback.
+      // Anchor custom (>= 6000): IDL fallback, with the slippage default hypothesis.
       if (code >= 6000) {
         const fromIdl = idl ? lookupIdlError(idl, code) : null;
+        // 0x1771 (6001) on a DEX is the >80% case: exceeded desired slippage.
+        const slippageHint =
+          code === 6001
+            ? " Note: 0x1771 (6001) on a swap is almost always exceeded slippage; see resources/dex-error-codes.md."
+            : "";
         return {
           class: "anchor-custom-error",
           errorName: fromIdl?.name ?? `Custom(${code})`,
           message:
-            fromIdl?.msg ??
-            `Program custom error ${code}. No decoded log line and no IDL match; fetch the program IDL to resolve.`,
+            (fromIdl?.msg ??
+              `Program custom error ${code} (0x${code.toString(16)}). No decoded log line and no IDL match; fetch the program IDL to resolve.`) +
+            slippageHint,
           failingInstructionIndex: ix,
           revertedProgram: reverted,
           accountIndex: null,
           retrySafe: false,
-          fix: "Program assertion failed. Fix the input (re-quote, raise slippage, correct amount/auth), rebuild. No blind-retry.",
+          fix:
+            code === 6001
+              ? "Likely slippage: refresh the quote, raise slippageBps, rebuild on a fresh blockhash. No blind-retry."
+              : "Program assertion failed. Fix the input (re-quote, raise slippage, correct amount/auth), rebuild. No blind-retry.",
         };
       }
 

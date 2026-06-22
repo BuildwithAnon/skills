@@ -9,9 +9,10 @@ All addresses are identical on devnet, testnet, and mainnet-beta.
 | Classic SPL Token | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` | `TOKEN_PROGRAM_ID` |
 | Token-2022 (Token Extensions) | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` | `TOKEN_2022_PROGRAM_ID` |
 | Associated Token Account | `ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL` | `ASSOCIATED_TOKEN_PROGRAM_ID` |
-| Wrapped SOL (WSOL) mint | `So11111111111111111111111111111111111111112` (9 decimals) | `NATIVE_MINT` |
+| Wrapped SOL (WSOL) mint, classic | `So11111111111111111111111111111111111111112` (9 decimals) | `NATIVE_MINT` |
+| Wrapped SOL (WSOL) mint, Token-2022 | `9pan9bMn5HatX4EJdBwg9VgCa7Uz5HL8N1m5D3NdXejP` (9 decimals) | `NATIVE_MINT_2022` |
 
-WSOL is a classic Token program mint. Always wrap, sync, and close it with `TOKEN_PROGRAM_ID`.
+The classic `NATIVE_MINT` is a classic Token program mint: wrap, sync, and close it with `TOKEN_PROGRAM_ID`. WSOL also exists under Token-2022 as `NATIVE_MINT_2022`; do not assume the native mint is only the classic one. If a flow uses Token-2022 WSOL, derive its ATA, sync, and close with `TOKEN_2022_PROGRAM_ID`. The two are distinct mints with distinct ATAs.
 
 Always pass the token program id explicitly. Some older helper signatures default to the classic Token program, which silently produces the wrong address or sends to the wrong program for a Token-2022 mint.
 
@@ -77,6 +78,66 @@ const ix = createAssociatedTokenAccountIdempotentInstruction(
 ```
 
 The non-idempotent `createAssociatedTokenAccountInstruction` throws "account already in use" if the ATA exists. Prefer the idempotent form unless you specifically want to fail when an account already exists.
+
+### Instruction vs the one-call convenience
+
+`getOrCreateAssociatedTokenAccount(connection, payer, mint, owner, allowOwnerOffCurve, commitment, options, programId, ASSOCIATED_TOKEN_PROGRAM_ID)` is a one-call helper that derives the ATA, creates it if missing, and returns the parsed `Account`. It sends its own transaction, so it needs `payer` as a signer and cannot be folded into another transaction.
+
+- Use `getOrCreateAssociatedTokenAccount` for a quick "make sure this exists and give me the account" step.
+- Use `createAssociatedTokenAccountIdempotentInstruction` when you want to batch the ATA creation into the same transaction as the transfer (one signature, one fee, atomic). The instruction does not send anything by itself; you add it to your transaction.
+
+### Off-curve ATA: a program vault (PDA owner)
+
+A PDA is derived off the ed25519 curve, so deriving its ATA with the default `allowOwnerOffCurve = false` throws `TokenOwnerOffCurveError`. Pass `true` for any PDA owner (a program vault, escrow authority, or market account):
+
+```ts
+import { PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
+
+// the vault authority your program signs for with invoke_signed
+const [vaultPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("vault"), market.toBuffer()],
+  myProgramId
+);
+
+const vaultAta = getAssociatedTokenAddressSync(
+  mint,
+  vaultPda,
+  true, // allowOwnerOffCurve: REQUIRED because the owner is a PDA
+  programId,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+```
+
+Create it idempotently like any ATA; a normal wallet pays the rent, and the PDA's program authorizes later spends with `invoke_signed`. Forgetting `allowOwnerOffCurve = true` for a PDA is a common real bug.
+
+## Reading balances
+
+For a single account, two paths:
+
+```ts
+import { getAccount } from "@solana/spl-token";
+
+// raw bigint of base units
+const raw = (await getAccount(connection, ata, "confirmed", programId)).amount;
+
+// or one RPC call returning amount + decimals + a formatted string
+const bal = await connection.getTokenAccountBalance(ata);
+// bal.value: { amount: "1500000", decimals: 6, uiAmountString: "1.5" }
+```
+
+To list every token a wallet holds, query by owner and program id. A Token-2022 holding does not appear under `TOKEN_PROGRAM_ID`, so when you do not know which program a wallet's tokens use, query both:
+
+```ts
+import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+
+const classic = await connection.getTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID });
+const t22 = await connection.getTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID });
+// classic.value and t22.value are arrays of { pubkey, account }; pass parsed:true variant
+// (getParsedTokenAccountsByOwner) if you want decoded amounts without unpacking.
+```
+
+`getTokenAccountBalance` and `getTokenAccountsByOwner` are `Connection` methods from `@solana/web3.js`, not `@solana/spl-token` exports. For interest-bearing or scaled-UI mints the raw `amount` is not the displayed balance; convert with `amountToUiAmount` / `uiAmountToAmount` (see `token-2022-gotchas.md`) rather than multiplying by `10 ** decimals` in floats.
 
 ## Rent and costs
 
